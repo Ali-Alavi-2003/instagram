@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ویرایش پروفایل | رئیس</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #fafafa; font-family: Tahoma, Arial, sans-serif; }
+        .edit-container { max-width: 600px; margin: 50px auto; background: white; padding: 30px; border: 1px solid #dbdbdb; border-radius: 8px; }
+        .current-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; border: 2px solid #efefef; }
+        .form-label { font-weight: 600; color: #262626; margin-top: 10px; }
+        .btn-save { background-color: #0095f6; color: white; border: none; font-weight: 600; width: 100%; padding: 10px; border-radius: 8px; transition: 0.3s; }
+        .btn-save:hover { background-color: #1877f2; }
+        #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .preview-wrapper { position: relative; display: inline-block; }
+    </style>
+</head>
+<body>
+
+<div id="loading-overlay">
+    <div class="spinner-border text-primary" role="status"></div>
+</div>
+
+<div class="container">
+    <div class="edit-container shadow-sm">
+        <h4 class="mb-4 text-center">ویرایش پروفایل رئیس</h4>
+        
+        <form id="edit-profile-form">
+            <!-- بخش عکس پروفایل -->
+            <div class="text-center mb-4">
+                <div class="preview-wrapper">
+                    <img id="avatar-preview" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" class="current-avatar" alt="Avatar">
+                </div>
+                <div>
+                    <label for="avatar-input" class="btn btn-sm btn-outline-secondary">تغییر عکس</label>
+                    <input type="file" id="avatar-input" accept="image/*" style="display: none;">
+                </div>
+            </div>
+
+            <!-- بخش بیوگرافی -->
+            <div class="mb-4">
+                <label class="form-label">بیوگرافی</label>
+                <textarea id="bio-input" class="form-control" rows="4" placeholder="چیزی بنویسید..."></textarea>
+            </div>
+
+            <!-- دکمه‌ها -->
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn-save shadow-sm">ذخیره تغییرات</button>
+                <a href="profile.html" class="btn btn-light border w-50">انصراف</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    const BASE_API = "http://localhost:8000";
+    const token = localStorage.getItem("access") || localStorage.getItem("token");
+
+    // چک کردن لاگین
+    if (!token) { window.location.href = "login.html"; }
+
+    /**
+     * ۱. دریافت اطلاعات فعلی از اکشن /me/
+     */
+    async function loadCurrentData() {
+        try {
+            const response = await fetch(`${BASE_API}/accounts/profile/me/`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            
+            if (!response.ok) throw new Error("خطا در دریافت اطلاعات");
+
+            const data = await response.json();
+
+            // پر کردن فرم
+            $('#bio-input').val(data.bio || "");
+            if (data.avatar) {
+                const avatarUrl = data.avatar.startsWith('http') ? data.avatar : BASE_API + data.avatar;
+                $('#avatar-preview').attr('src', avatarUrl);
+            }
+        } catch (error) {
+            console.error("Error loading profile:", error);
+        }
+    }
+
+    /**
+     * ۲. پیش‌نمایش عکس بلافاصله بعد از انتخاب فایل
+     */
+    $('#avatar-input').change(function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) { $('#avatar-preview').attr('src', e.target.result); }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    /**
+     * ۳. ارسال اطلاعات به بک‌اِند با متد PATCH به اکشن /me/
+     */
+    $('#edit-profile-form').submit(async function(e) {
+        e.preventDefault();
+        $('#loading-overlay').css('display', 'flex');
+
+        const formData = new FormData();
+        formData.append('bio', $('#bio-input').val());
+        
+        const avatarFile = $('#avatar-input')[0].files[0];
+        if (avatarFile) {
+            formData.append('avatar', avatarFile);
+        }
+
+        try {
+            // استفاده از آدرس جدید و استاندارد
+            const response = await fetch(`${BASE_API}/accounts/profile/me/`, { 
+                method: "PATCH", 
+                headers: { 
+                    "Authorization": `Bearer ${token}` 
+                    // توجه: Content-Type را ست نمی‌کنیم تا FormData خودش Boundary بگذارد
+                },
+                body: formData 
+            });
+
+            if (response.ok) {
+                alert("تغییرات با موفقیت ذخیره شد، رئیس!");
+                window.location.href = "profile.html";
+            } else {
+                const errData = await response.json();
+                console.error("Server Error:", errData);
+                alert("خطا در ذخیره‌سازی: " + JSON.stringify(errData));
+            }
+        } catch (error) {
+            console.error("Network Error:", error);
+            alert("خطا در برقراری ارتباط با سرور");
+        } finally {
+            $('#loading-overlay').hide();
+        }
+    });
+
+    // شروع کار بعد از لود شدن صفحه
+    $(document).ready(loadCurrentData);
+</script>
+</body>
+</html>

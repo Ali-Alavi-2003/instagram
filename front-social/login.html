@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ورود به اینستاگرام | رئیس</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <style>
+        :root { --ig-bg: #fafafa; --ig-border: #dbdbdb; --ig-link: #0095f6; --ig-text: #262626; }
+        body { background-color: var(--ig-bg); font-family: Tahoma, sans-serif; color: var(--ig-text); height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .login-card { background-color: #fff; border: 1px solid var(--ig-border); border-radius: 8px; padding: 40px; width: 100%; max-width: 380px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
+        .brand-logo { font-size: 2.5rem; font-weight: bold; text-align: center; margin-bottom: 30px; font-family: 'Times New Roman', serif; }
+        .btn-primary-ig { background-color: var(--ig-link); border: none; font-weight: 600; width: 100%; padding: 8px; border-radius: 4px; color: white; }
+        .btn-primary-ig:disabled { background-color: #b2dffc; }
+        .form-control-ig { background-color: #fafafa; border: 1px solid var(--ig-border); font-size: 0.85rem; padding: 9px; border-radius: 4px; margin-bottom: 12px; text-align: left; direction: ltr; }
+        .alert-custom { font-size: 0.85rem; padding: 10px; border-radius: 4px; margin-bottom: 15px; display: none; }
+        .back-link { color: var(--ig-link); text-decoration: none; font-size: 0.85rem; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="brand-logo">Instagram</div>
+        <div id="alert-box" class="alert alert-custom"></div>
+
+        <div id="step-phone">
+            <p class="text-muted text-center mb-4" style="font-size: 0.9rem;">رئیس، شماره موبایلت رو وارد کن:</p>
+            <form id="phone-form">
+                <input type="text" id="phone-input" class="form-control form-control-ig" placeholder="09123456789" required maxlength="11">
+                <button type="submit" id="send-otp-btn" class="btn btn-primary-ig">ارسال کد تایید</button>
+            </form>
+        </div>
+
+        <div id="step-otp" style="display: none;">
+            <p class="text-muted text-center mb-4" style="font-size: 0.9rem;">کد ارسال شده به <strong id="display-phone" dir="ltr"></strong> را وارد کن:</p>
+            <form id="otp-form">
+                <input type="text" id="otp-input" class="form-control form-control-ig" placeholder="کد ۶ رقمی" required maxlength="6" style="letter-spacing: 5px; text-align: center;">
+                <button type="submit" id="verify-otp-btn" class="btn btn-primary-ig">تایید و ورود</button>
+            </form>
+            <div class="text-center mt-3"><span class="back-link" id="change-phone-btn">← تغییر شماره موبایل</span></div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        const BASE_API_URL = 'http://127.0.0.1:8000';
+        let userPhoneNumber = '';
+
+        function showAlert(message, type = 'danger') {
+            $('#alert-box').removeClass('alert-danger alert-success').addClass(`alert-${type}`).text(message).fadeIn();
+        }
+
+        $('#phone-form').on('submit', function (e) {
+            e.preventDefault();
+            const phone = $('#phone-input').val().trim();
+            userPhoneNumber = phone;
+            $('#send-otp-btn').prop('disabled', true).text('در حال ارسال...');
+
+            $.ajax({
+                url: `${BASE_API_URL}/accounts/send-otp/`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ phone: phone }),
+                success: function () {
+                    $('#step-phone').hide();
+                    $('#display-phone').text(phone);
+                    $('#step-otp').fadeIn();
+                    showAlert('کد ارسال شد (کنسول داکر رو ببین رئیس!)', 'success');
+                },
+                error: function () {
+                    $('#send-otp-btn').prop('disabled', false).text('ارسال کد تایید');
+                    showAlert('خطا در ارسال کد. سرور داکر بالا هست؟');
+                }
+            });
+        });
+
+        $('#otp-form').on('submit', function (e) {
+            e.preventDefault();
+            const otp = $('#otp-input').val().trim();
+            $('#verify-otp-btn').prop('disabled', true).text('در حال بررسی...');
+
+            $.ajax({
+                url: `${BASE_API_URL}/accounts/verify-otp/`,
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ phone: userPhoneNumber, otp: otp }),
+                success: function (response) {
+                    // رئیس، اینجا رو اصلاح کردم که با هر دو مدل (A بزرگ یا کوچک) کار کنه
+                    const accessToken = response.access || response.Access;
+                    const refreshToken = response.refresh || response.Refresh;
+
+                    if (accessToken) {
+                        // ذخیره با نام "access" برای هماهنگی با فایل پروفایل
+                        localStorage.setItem('access', accessToken);
+                        localStorage.setItem('refresh', refreshToken);
+                        
+                        showAlert('خوش آمدی رئیس! در حال انتقال...', 'success');
+                        setTimeout(() => { window.location.href = 'profile.html'; }, 1000);
+                    } else {
+                        showAlert('توکن یافت نشد! ساختار پاسخ رو چک کن.', 'danger');
+                        $('#verify-otp-btn').prop('disabled', false).text('تایید و ورود');
+                    }
+                },
+                error: function () {
+                    $('#verify-otp-btn').prop('disabled', false).text('تایید و ورود');
+                    showAlert('کد اشتباه است رئیس!');
+                }
+            });
+        });
+
+        $('#change-phone-btn').on('click', function () {
+            $('#step-otp').hide();
+            $('#step-phone').fadeIn();
+            $('#alert-box').hide();
+        });
+    </script>
+</body>
+</html>

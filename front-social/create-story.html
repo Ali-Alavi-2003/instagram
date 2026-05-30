@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ایجاد استوری</title>
+
+  <link rel="stylesheet" href="bootstrap-5.2.0-dist/css/bootstrap.rtl.min.css">
+
+  <style>
+    :root { --ig-border:#dbdbdb; --ig-bg:#fafafa; --ig-text:#262626; }
+    body { background: var(--ig-bg); color: var(--ig-text); font-family: Tahoma, Arial; }
+    .card-ig { border: 1px solid var(--ig-border); border-radius: 12px; }
+    .preview {
+      width: 100%;
+      max-height: 420px;
+      object-fit: contain;
+      border: 1px dashed var(--ig-border);
+      border-radius: 12px;
+      background: #fff;
+      display: none;
+    }
+    .hint { font-size: 12px; color:#777; }
+  </style>
+
+  <!-- رفع ارور favicon -->
+  <link rel="icon" href="data:,">
+</head>
+<body>
+
+<nav class="navbar navbar-light bg-white border-bottom sticky-top">
+  <div class="container justify-content-between">
+    <a class="navbar-brand fw-bold" href="index.html">Instagram</a>
+    <div class="d-flex gap-2">
+      <a href="index.html" class="btn btn-sm btn-outline-dark">خانه</a>
+      <a href="profile.html" class="btn btn-sm btn-outline-dark">پروفایل من</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-4">
+  <div class="row justify-content-center">
+    <div class="col-md-7 col-lg-5">
+
+      <div class="card card-ig bg-white">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-3">ایجاد استوری</h5>
+
+          <div id="alertBox" class="alert d-none" role="alert"></div>
+
+          <form id="storyForm">
+            <div class="mb-3">
+              <label class="form-label">تصویر استوری</label>
+              <input id="imgInput" class="form-control" type="file" accept="image/*" required>
+              <div class="hint mt-2">
+                فقط تصویر. بعد از آپلود، استوری تا زمان انقضا در صفحه اصلی نمایش داده می‌شود.
+              </div>
+            </div>
+
+            <img id="preview" class="preview mb-3" alt="preview"/>
+
+            <div class="d-grid gap-2">
+              <button id="submitBtn" type="submit" class="btn btn-dark">
+                انتشار استوری
+              </button>
+              <a href="index.html" class="btn btn-outline-secondary">
+                انصراف
+              </a>
+            </div>
+          </form>
+
+        </div>
+      </div>
+
+      <div class="text-center mt-3 hint">
+        اگر توکن نداری، اول لاگین کن.
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const BASE_API = "http://127.0.0.1:8000";
+  const token = localStorage.getItem("access") || localStorage.getItem("token");
+
+  const $ = (sel) => document.querySelector(sel);
+
+  function showAlert(type, msg) {
+    const box = $("#alertBox");
+    box.className = `alert alert-${type}`;
+    box.textContent = msg;
+    box.classList.remove("d-none");
+  }
+
+  function setLoading(isLoading) {
+    const btn = $("#submitBtn");
+    btn.disabled = isLoading;
+    btn.textContent = isLoading ? "در حال آپلود..." : "انتشار استوری";
+  }
+
+  // اگر توکن نیست، اجازه نده
+  if (!token) {
+    showAlert("warning", "برای ایجاد استوری باید وارد حساب کاربری شوی (توکن یافت نشد).");
+    $("#submitBtn").disabled = true;
+  }
+
+  // پیش‌نمایش تصویر
+  $("#imgInput").addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    const preview = $("#preview");
+
+    if (!file) {
+      preview.style.display = "none";
+      preview.src = "";
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    preview.src = url;
+    preview.style.display = "block";
+  });
+
+  // ارسال استوری
+  $("#storyForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!token) return;
+
+    const file = $("#imgInput").files?.[0];
+    if (!file) {
+      showAlert("danger", "لطفاً یک تصویر انتخاب کن.");
+      return;
+    }
+
+    // نکته: اسم فیلد باید دقیقاً مطابق serializer/model باشد (اینجا: img)
+    const formData = new FormData();
+    formData.append("img", file);
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_API}/stories/stories/`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+          // Content-Type را ست نکن! مرورگر boundary را خودش می‌گذارد.
+        },
+        body: formData
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // خطاهای DRF معمولاً به شکل {field:["msg"]} می‌آیند
+        console.error("Create story error:", res.status, data);
+        const msg = (data?.img?.[0]) || data?.detail || "خطا در ایجاد استوری.";
+        showAlert("danger", msg);
+        return;
+      }
+
+      showAlert("success", "استوری با موفقیت منتشر شد. انتقال به صفحه اصلی...");
+      setTimeout(() => {
+        window.location.href = "index.html?stories=1";
+      }, 600);
+
+    } catch (err) {
+      console.error(err);
+      showAlert("danger", "مشکل شبکه/سرور. دوباره تلاش کن.");
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>
+</body>
+</html>

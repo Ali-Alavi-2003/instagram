@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت پست | رئیس</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        body {
+            background-color: #fafafa;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+        }
+
+        .post-card {
+            max-width: 935px;
+            margin: 40px auto;
+            background: white;
+            border: 1px solid #dbdbdb;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: row-reverse;
+            min-height: 600px;
+            overflow: hidden;
+        }
+
+        .post-image-side {
+            flex: 1.5;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .post-image-side img {
+            width: 100%;
+            height: auto;
+            max-height: 800px;
+            object-fit: contain;
+        }
+
+        .post-info-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #efefef;
+            background: white;
+        }
+
+        .post-header {
+            padding: 15px;
+            border-bottom: 1px solid #efefef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .post-content {
+            padding: 15px;
+            flex-grow: 1;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .caption-section {
+            font-size: 14px;
+            line-height: 1.8;
+            word-break: break-word;
+        }
+
+        .caption-edit-box {
+            margin-top: 10px;
+        }
+
+        .caption-edit-textarea {
+            width: 100%;
+            min-height: 90px;
+            resize: vertical;
+            border: 1px solid #dbdbdb;
+            border-radius: 6px;
+            padding: 10px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .comment-item {
+            margin-bottom: 12px;
+            font-size: 14px;
+            word-break: break-word;
+        }
+
+        .replies-container {
+            margin-right: 20px;
+            border-right: 2px solid #efefef;
+            padding-right: 10px;
+            margin-top: 8px;
+        }
+
+        .reply-text {
+            color: #0095f6;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .comment-box {
+            padding: 10px 15px;
+            border-top: 1px solid #efefef;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .comment-input {
+            border: none;
+            flex-grow: 1;
+            outline: none;
+            font-size: 14px;
+            background: transparent;
+        }
+
+        .icon-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .error-box {
+            max-width: 700px;
+            margin: 40px auto;
+        }
+
+        @media (max-width: 768px) {
+            .post-card {
+                flex-direction: column;
+                margin: 15px auto;
+            }
+
+            .post-info-side {
+                border-left: none;
+            }
+
+            .post-content {
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <div class="post-card shadow-sm" id="post-main-container">
+        <div class="p-5 text-center w-100">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">در حال فراخوانی اطلاعات، رئیس...</p>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+    const BASE_API = "http://localhost:8000";
+
+    const token =
+        localStorage.getItem("access") ||
+        localStorage.getItem("token") ||
+        localStorage.getItem("access_token");
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const postId = urlParams.get("id");
+
+    let currentLoggedInUserId = null;
+    let selectedParentId = null;
+    let currentPost = null;
+    let isCaptionEditing = false;
+
+    function getAuthHeaders(extraHeaders = {}) {
+        const headers = { ...extraHeaders };
+
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        return headers;
+    }
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return "";
+
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function showError(message) {
+        $("#post-main-container").removeClass("post-card").html(`
+            <div class="alert alert-danger error-box text-center">
+                <h5 class="fw-bold mb-3">خطا</h5>
+                <p class="mb-0">${escapeHtml(message)}</p>
+            </div>
+        `);
+    }
+
+    function normalizeImageUrl(img) {
+        if (!img) {
+            return "https://via.placeholder.com/700x700?text=No+Image";
+        }
+
+        if (String(img).startsWith("http://") || String(img).startsWith("https://")) {
+            return img;
+        }
+
+        return `${BASE_API}${img}`;
+    }
+
+    function getPostOwnerId(post) {
+        /*
+            حالت‌های احتمالی بک‌اند:
+            post.user = 1
+            post.user = { id: 1, phone: "..." }
+            post.user_id = 1
+            post.owner = 1
+            post.owner = { id: 1 }
+        */
+
+        if (!post) return null;
+
+        if (post.user && typeof post.user === "object") {
+            return post.user.id ?? post.user.pk ?? null;
+        }
+
+        if (post.user) {
+            return post.user;
+        }
+
+        if (post.user_id) {
+            return post.user_id;
+        }
+
+        if (post.owner && typeof post.owner === "object") {
+            return post.owner.id ?? post.owner.pk ?? null;
+        }
+
+        if (post.owner) {
+            return post.owner;
+        }
+
+        return null;
+    }
+
+    function getPostAuthorName(post) {
+        if (!post) return "نامشخص";
+
+        if (post.user_phone) return post.user_phone;
+        if (post.phone) return post.phone;
+        if (post.username) return post.username;
+
+        if (post.user && typeof post.user === "object") {
+            return post.user.phone || post.user.username || post.user.email || post.user.id || "نامشخص";
+        }
+
+        if (post.user) return post.user;
+
+        return "نامشخص";
+    }
+
+    async function loadCurrentUser() {
+        if (!token) {
+            currentLoggedInUserId = null;
+            return;
+        }
+
+        try {
+            const response = await fetch(`${BASE_API}/accounts/profile/me/`, {
+                method: "GET",
+                headers: getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                console.warn("عدم دریافت پروفایل کاربر:", response.status);
+                currentLoggedInUserId = null;
+                return;
+            }
+
+            const userData = await response.json();
+
+            currentLoggedInUserId =
+                userData.id ??
+                userData.pk ??
+                userData.user_id ??
+                null;
+
+        } catch (error) {
+            console.error("خطا در دریافت پروفایل:", error);
+            currentLoggedInUserId = null;
+        }
+    }
+
+    async function loadPostDetail() {
+        if (!postId) {
+            showError("شناسه پست در URL وجود ندارد. مثلا باید آدرس شبیه این باشد: post-detail.html?id=6");
+            return;
+        }
+
+        try {
+            $("#post-main-container").addClass("post-card").html(`
+                <div class="p-5 text-center w-100">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">در حال فراخوانی اطلاعات، رئیس...</p>
+                </div>
+            `);
+
+            await loadCurrentUser();
+
+            const response = await fetch(`${BASE_API}/posts/all-posts/${postId}/`, {
+                method: "GET",
+                headers: getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`خطا در دریافت پست. status=${response.status} response=${errText}`);
+            }
+
+            currentPost = await response.json();
+            isCaptionEditing = false;
+            renderPost(currentPost);
+
+        } catch (error) {
+            console.error("خطا در بارگذاری پست:", error);
+            showError("پست بارگذاری نشد. لطفاً کنسول مرورگر و آدرس API را بررسی کن.");
+        }
+    }
+
+    function renderComments(comments) {
+        if (!comments || comments.length === 0) {
+            return `<div class="text-muted small text-center">نظری ثبت نشده است.</div>`;
+        }
+
+        return comments.map(c => {
+            const commentId = c.id;
+            const commentUser = c.user || c.username || c.user_phone || "کاربر";
+            const commentText = c.text || c.body || "";
+
+            let repliesHtml = "";
+
+            if (c.replies && c.replies.length > 0) {
+                repliesHtml = `
+                    <div class="replies-container">
+                        ${c.replies.map(r => {
+                            const replyUser = r.user || r.username || r.user_phone || "کاربر";
+                            const replyText = r.text || r.body || "";
+
+                            return `
+                                <div class="comment-item small mt-1">
+                                    <span class="fw-bold">${escapeHtml(replyUser)}:</span>
+                                    <span>${escapeHtml(replyText)}</span>
+                                </div>
+                            `;
+                        }).join("")}
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="comment-item" id="comment-${escapeHtml(commentId)}">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <span>
+                            <span class="fw-bold">${escapeHtml(commentUser)}</span>:
+                            <span>${escapeHtml(commentText)}</span>
+                        </span>
+
+                        <span
+                            class="reply-text"
+                            onclick="setReply(${Number(commentId)}, '${escapeHtml(String(commentUser)).replaceAll("'", "\\'")}')"
+                        >
+                            پاسخ
+                        </span>
+                    </div>
+
+                    ${repliesHtml}
+                </div>
+            `;
+        }).join("");
+    }
+
+    function setReply(commentId, username) {
+        selectedParentId = commentId;
+
+        $("#new-comment-text")
+            .val(`@${username} `)
+            .focus()
+            .attr("placeholder", `پاسخ به ${username}...`);
+    }
+
+    function renderCaptionView(post, isOwner) {
+        const postAuthor = getPostAuthorName(post);
+        const caption = post.caption || "";
+
+        if (isCaptionEditing && isOwner) {
+            return `
+                <div class="caption-section">
+                    <div class="mb-2">
+                        <span class="fw-bold">${escapeHtml(postAuthor)}</span>:
+                    </div>
+
+                    <div class="caption-edit-box">
+                        <textarea
+                            id="caption-edit-input"
+                            class="caption-edit-textarea"
+                            placeholder="کپشن جدید را وارد کن، رئیس..."
+                        >${escapeHtml(caption)}</textarea>
+
+                        <div class="d-flex gap-2 mt-2">
+                            <button
+                                class="btn btn-primary btn-sm"
+                                id="save-caption-btn"
+                                onclick="saveCaption()"
+                            >
+                                ذخیره
+                            </button>
+
+                            <button
+                                class="btn btn-outline-secondary btn-sm"
+                                onclick="cancelCaptionEdit()"
+                            >
+                                لغو
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="caption-section">
+                <span class="fw-bold">${escapeHtml(postAuthor)}</span>:
+                <span id="caption-text">${escapeHtml(caption)}</span>
+            </div>
+        `;
+    }
+
+    function renderPost(post) {
+        const ownerId = getPostOwnerId(post);
+        const isOwner =
+            currentLoggedInUserId !== null &&
+            ownerId !== null &&
+            Number(ownerId) === Number(currentLoggedInUserId);
+
+        const postAuthor = getPostAuthorName(post);
+        const imageUrl = normalizeImageUrl(post.img || post.image || post.photo);
+
+        const html = `
+            <div class="post-image-side">
+                <img src="${escapeHtml(imageUrl)}" alt="Post">
+            </div>
+
+            <div class="post-info-side">
+                <div class="post-header">
+                    <span class="fw-bold">${escapeHtml(postAuthor)}</span>
+
+                    ${
+                        isOwner
+                            ? `
+                                <button
+                                    class="icon-btn text-primary p-0"
+                                    title="ویرایش کپشن"
+                                    onclick="startCaptionEdit()"
+                                >
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            `
+                            : ""
+                    }
+                </div>
+
+                <div class="post-content">
+                    ${renderCaptionView(post, isOwner)}
+
+                    <div class="comments-section mt-3">
+                        <h6 class="small fw-bold border-bottom pb-2 mb-3">نظرات:</h6>
+                        <div id="comments-list">${renderComments(post.comments)}</div>
+                    </div>
+                </div>
+
+                <div class="comment-box">
+                    <input
+                        type="text"
+                        id="new-comment-text"
+                        class="comment-input"
+                        placeholder="افزودن نظر، رئیس..."
+                        ${token ? "" : "disabled"}
+                    >
+
+                    <button
+                        class="btn btn-link text-primary fw-bold p-0 text-decoration-none"
+                        onclick="sendComment()"
+                        ${token ? "" : "disabled"}
+                    >
+                        ارسال
+                    </button>
+                </div>
+            </div>
+        `;
+
+        $("#post-main-container").addClass("post-card").html(html);
+    }
+
+    function startCaptionEdit() {
+        if (!currentPost) return;
+
+        isCaptionEditing = true;
+        renderPost(currentPost);
+
+        setTimeout(() => {
+            $("#caption-edit-input").focus();
+        }, 50);
+    }
+
+    function cancelCaptionEdit() {
+        isCaptionEditing = false;
+        renderPost(currentPost);
+    }
+
+    async function saveCaption() {
+        const newCaption = $("#caption-edit-input").val();
+
+        if (newCaption === undefined || newCaption === null) {
+            return;
+        }
+
+        const saveBtn = $("#save-caption-btn");
+        saveBtn.prop("disabled", true).text("در حال ذخیره...");
+
+        try {
+            const response = await fetch(`${BASE_API}/posts/all-posts/${postId}/`, {
+                method: "PATCH",
+                headers: getAuthHeaders({
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify({
+                    caption: newCaption
+                })
+            });
+
+            if (!response.ok) {
+                let errorMessage = "خطا در ذخیره کپشن";
+
+                try {
+                    const err = await response.json();
+                    errorMessage = JSON.stringify(err);
+                } catch {
+                    errorMessage = await response.text();
+                }
+
+                console.error("خطا در PATCH کپشن:", response.status, errorMessage);
+                alert(`ویرایش کپشن انجام نشد.\nStatus: ${response.status}\n${errorMessage}`);
+                return;
+            }
+
+            const updatedPost = await response.json();
+
+            /*
+                اگر بک‌اند بعد از PATCH کل آبجکت پست را برگرداند:
+                currentPost = updatedPost
+
+                اگر فقط چند فیلد برگرداند:
+                merge می‌کنیم.
+            */
+            currentPost = {
+                ...currentPost,
+                ...updatedPost,
+                caption: updatedPost.caption ?? newCaption
+            };
+
+            isCaptionEditing = false;
+            renderPost(currentPost);
+
+        } catch (error) {
+            console.error("خطا در ارتباط با سرور هنگام ذخیره کپشن:", error);
+            alert("خطا در ارتباط با سرور هنگام ذخیره کپشن.");
+        } finally {
+            saveBtn.prop("disabled", false).text("ذخیره");
+        }
+    }
+
+    async function sendComment() {
+        const text = $("#new-comment-text").val().trim();
+
+        if (!text) return;
+
+        if (!token) {
+            alert("برای ارسال نظر باید وارد حساب کاربری شده باشی.");
+            return;
+        }
+
+        const payload = {
+            text: text,
+            post: Number(postId),
+            comment: selectedParentId
+        };
+
+        /*
+            اگر بک‌اند شما برای reply فیلد parent می‌خواهد، این را تغییر بده:
+            comment: selectedParentId
+
+            به:
+            parent: selectedParentId
+        */
+
+        try {
+            const response = await fetch(`${BASE_API}/posts/comments/`, {
+                method: "POST",
+                headers: getAuthHeaders({
+                    "Content-Type": "application/json"
+                }),
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                $("#new-comment-text")
+                    .val("")
+                    .attr("placeholder", "افزودن نظر، رئیس...");
+
+                selectedParentId = null;
+
+                await loadPostDetail();
+
+            } else {
+                let errorMessage = "خطا در ارسال نظر";
+
+                try {
+                    const err = await response.json();
+                    errorMessage = JSON.stringify(err);
+                } catch {
+                    errorMessage = await response.text();
+                }
+
+                console.error("خطا در ارسال کامنت:", response.status, errorMessage);
+                alert(`ارسال نظر انجام نشد.\nStatus: ${response.status}\n${errorMessage}`);
+            }
+
+        } catch (error) {
+            console.error("خطا در ارتباط با سرور:", error);
+            alert("خطا در ارتباط با سرور");
+        }
+    }
+
+    $(document).ready(function () {
+        loadPostDetail();
+    });
+</script>
+
+</body>
+</html>

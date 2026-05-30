@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>افزودن پست | رئیس</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    :root{
+      --bg:#fafafa;
+      --card:#ffffff;
+      --border:#dbdbdb;
+      --muted:#8e8e8e;
+      --primary:#0095f6;
+      --primary-hover:#1877f2;
+      --danger:#dc3545;
+      --success:#198754;
+    }
+
+    body{
+      margin:0;
+      padding:0;
+      background:linear-gradient(180deg,#fafafa 0%, #f3f4f6 100%);
+      font-family:'Segoe UI',Tahoma,sans-serif;
+      color:#262626;
+      min-height:100vh;
+    }
+
+    .page-wrap{
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:32px 16px;
+    }
+
+    .post-card{
+      width:100%;
+      max-width:720px;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:20px;
+      overflow:hidden;
+      box-shadow:0 10px 30px rgba(0,0,0,.06);
+    }
+
+    .post-card-header{
+      padding:18px 22px;
+      border-bottom:1px solid #efefef;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      background:#fff;
+    }
+
+    .post-card-header h1{
+      font-size:18px;
+      margin:0;
+      font-weight:700;
+    }
+
+    .header-action{
+      color:#6c757d;
+      text-decoration:none;
+      font-size:14px;
+    }
+
+    .header-action:hover{
+      color:#000;
+    }
+
+    .post-card-body{
+      padding:24px;
+    }
+
+    .drop-zone{
+      border:2px dashed #d5d5d5;
+      border-radius:18px;
+      background:#fcfcfc;
+      min-height:280px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      cursor:pointer;
+      transition:.25s ease;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .drop-zone:hover{
+      border-color:var(--primary);
+      background:#f4faff;
+    }
+
+    .drop-zone.dragover{
+      border-color:var(--primary);
+      background:#edf7ff;
+      transform:scale(1.01);
+    }
+
+    .drop-zone-content{
+      padding:24px;
+    }
+
+    .drop-zone i{
+      font-size:54px;
+      color:var(--primary);
+      margin-bottom:12px;
+    }
+
+    .drop-zone h5{
+      font-size:18px;
+      font-weight:700;
+      margin-bottom:8px;
+    }
+
+    .drop-zone p{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .preview-wrapper{
+      display:none;
+      margin-top:18px;
+      position:relative;
+    }
+
+    .preview-wrapper.active{
+      display:block;
+    }
+
+    .preview-image{
+      width:100%;
+      max-height:460px;
+      object-fit:cover;
+      border-radius:18px;
+      border:1px solid #ececec;
+      background:#f8f8f8;
+    }
+
+    .preview-actions{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .btn-soft{
+      border:1px solid var(--border);
+      background:#fff;
+      border-radius:10px;
+      padding:10px 14px;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      transition:.2s;
+    }
+
+    .btn-soft:hover{
+      background:#f7f7f7;
+    }
+
+    .form-label{
+      font-weight:700;
+      font-size:14px;
+      margin-bottom:10px;
+    }
+
+    .caption-box{
+      margin-top:24px;
+    }
+
+    textarea.form-control{
+      min-height:140px;
+      resize:vertical;
+      border-radius:14px;
+      border:1px solid var(--border);
+      box-shadow:none !important;
+      padding:14px;
+      font-size:14px;
+    }
+
+    .helper-row{
+      margin-top:8px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+
+    .helper-text{
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .char-counter{
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .message-box{
+      display:none;
+      margin-top:18px;
+      border-radius:12px;
+      padding:12px 14px;
+      font-size:14px;
+      font-weight:600;
+    }
+
+    .message-box.show{
+      display:block;
+    }
+
+    .message-box.error{
+      background:#fff1f2;
+      color:#b42318;
+      border:1px solid #fecdd3;
+    }
+
+    .message-box.success{
+      background:#ecfdf3;
+      color:#027a48;
+      border:1px solid #abefc6;
+    }
+
+    .submit-row{
+      margin-top:24px;
+      display:flex;
+      justify-content:end;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .btn-submit{
+      border:none;
+      background:var(--primary);
+      color:#fff;
+      border-radius:12px;
+      padding:12px 20px;
+      min-width:180px;
+      font-weight:700;
+      transition:.2s;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+    }
+
+    .btn-submit:hover{
+      background:var(--primary-hover);
+    }
+
+    .btn-submit:disabled{
+      opacity:.75;
+      cursor:not-allowed;
+    }
+
+    .btn-cancel{
+      border:1px solid var(--border);
+      background:#fff;
+      color:#333;
+      border-radius:12px;
+      padding:12px 18px;
+      font-weight:700;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .hidden-input{
+      display:none;
+    }
+
+    @media (max-width: 768px){
+      .post-card-body{
+        padding:18px;
+      }
+
+      .drop-zone{
+        min-height:220px;
+      }
+
+      .preview-image{
+        max-height:320px;
+      }
+
+      .submit-row{
+        flex-direction:column-reverse;
+      }
+
+      .btn-submit,
+      .btn-cancel{
+        width:100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="post-card">
+      <div class="post-card-header">
+        <h1><i class="fa-solid fa-square-plus text-primary ms-2"></i>ایجاد پست جدید</h1>
+        <a href="javascript:history.back()" class="header-action">
+          <i class="fa-solid fa-arrow-right ms-1"></i>
+          بازگشت
+        </a>
+      </div>
+
+      <div class="post-card-body">
+        <form id="add-post-form">
+          <input type="file" id="post-image" class="hidden-input" accept="image/*">
+
+          <label class="form-label">تصویر پست</label>
+          <div class="drop-zone" id="drop-zone">
+            <div class="drop-zone-content" id="drop-zone-content">
+              <i class="fa-regular fa-image"></i>
+              <h5>عکس پست را انتخاب کن</h5>
+              <p>روی این بخش کلیک کن یا تصویر را بکش و اینجا رها کن</p>
+            </div>
+          </div>
+
+          <div class="preview-wrapper" id="preview-wrapper">
+            <img id="image-preview" class="preview-image" alt="preview">
+            <div class="preview-actions">
+              <button type="button" class="btn-soft" id="change-image-btn">
+                <i class="fa-solid fa-rotate"></i>
+                تغییر تصویر
+              </button>
+              <button type="button" class="btn-soft" id="remove-image-btn">
+                <i class="fa-solid fa-trash"></i>
+                حذف تصویر
+              </button>
+            </div>
+          </div>
+
+          <div class="caption-box">
+            <label for="post-caption" class="form-label">کپشن</label>
+            <textarea
+              id="post-caption"
+              class="form-control"
+              maxlength="500"
+              placeholder="یه کپشن حرفه‌ای بنویس رئیس..."
+            ></textarea>
+
+            <div class="helper-row">
+              <div class="helper-text">حداکثر 500 کاراکتر</div>
+              <div class="char-counter">
+                <span id="caption-count">0</span>/500
+              </div>
+            </div>
+          </div>
+
+          <div id="message-box" class="message-box"></div>
+
+          <div class="submit-row">
+            <a href="javascript:history.back()" class="btn-cancel">انصراف</a>
+            <button type="submit" class="btn-submit" id="submit-btn">
+              <span class="spinner-border spinner-border-sm d-none" id="submit-spinner"></span>
+              <span id="submit-text">انتشار پست</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BASE_API = "http://localhost:8000";
+
+    // رئیس، این endpoint را با route واقعی PostViewset خودت هماهنگ کن.
+    // اگر router.register('posts', PostViewset, ...) زدی، معمولاً این می‌شود:
+    const CREATE_POST_URL = `${BASE_API}/posts/post/`;
+
+    const token = localStorage.getItem("access") || localStorage.getItem("token");
+
+    const form = document.getElementById("add-post-form");
+    const fileInput = document.getElementById("post-image");
+    const dropZone = document.getElementById("drop-zone");
+    const previewWrapper = document.getElementById("preview-wrapper");
+    const imagePreview = document.getElementById("image-preview");
+    const captionInput = document.getElementById("post-caption");
+    const captionCount = document.getElementById("caption-count");
+    const messageBox = document.getElementById("message-box");
+    const submitBtn = document.getElementById("submit-btn");
+    const submitSpinner = document.getElementById("submit-spinner");
+    const submitText = document.getElementById("submit-text");
+    const changeImageBtn = document.getElementById("change-image-btn");
+    const removeImageBtn = document.getElementById("remove-image-btn");
+
+    function showMessage(text, type = "error") {
+      messageBox.className = `message-box show ${type}`;
+      messageBox.textContent = text;
+    }
+
+    function clearMessage() {
+      messageBox.className = "message-box";
+      messageBox.textContent = "";
+    }
+
+    function setLoading(isLoading) {
+      submitBtn.disabled = isLoading;
+      submitSpinner.classList.toggle("d-none", !isLoading);
+      submitText.textContent = isLoading ? "در حال انتشار..." : "انتشار پست";
+    }
+
+    function openFilePicker() {
+      fileInput.click();
+    }
+
+    function renderPreview(file) {
+      if (!file) return;
+
+      const validTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg", "image/gif"];
+      if (!validTypes.includes(file.type)) {
+        showMessage("فرمت تصویر معتبر نیست. لطفاً JPG / PNG / WEBP / GIF انتخاب کن.");
+        fileInput.value = "";
+        return;
+      }
+
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        showMessage("حجم تصویر بیشتر از 10 مگابایت است.");
+        fileInput.value = "";
+        return;
+      }
+
+      clearMessage();
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        imagePreview.src = e.target.result;
+        previewWrapper.classList.add("active");
+        dropZone.style.display = "none";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function resetImage() {
+      fileInput.value = "";
+      imagePreview.src = "";
+      previewWrapper.classList.remove("active");
+      dropZone.style.display = "flex";
+    }
+
+    function ensureAuth() {
+      if (!token) {
+        showMessage("رئیس، ابتدا باید وارد حساب کاربری شوی.");
+        setTimeout(() => {
+          window.location.href = "login.html";
+        }, 1200);
+        return false;
+      }
+      return true;
+    }
+
+    dropZone.addEventListener("click", openFilePicker);
+    changeImageBtn.addEventListener("click", openFilePicker);
+    removeImageBtn.addEventListener("click", () => {
+      resetImage();
+      clearMessage();
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      renderPreview(file);
+    });
+
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragover");
+    });
+
+    dropZone.addEventListener("dragleave", () => {
+      dropZone.classList.remove("dragover");
+    });
+
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      fileInput.files = dataTransfer.files;
+
+      renderPreview(file);
+    });
+
+    captionInput.addEventListener("input", () => {
+      captionCount.textContent = captionInput.value.length;
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      clearMessage();
+
+      if (!ensureAuth()) return;
+
+      const imageFile = fileInput.files[0];
+      const caption = captionInput.value.trim();
+
+      if (!imageFile) {
+        showMessage("لطفاً یک تصویر برای پست انتخاب کن.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("img", imageFile);
+      formData.append("caption", caption);
+
+      try {
+        setLoading(true);
+
+        const response = await fetch(CREATE_POST_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const contentType = response.headers.get("content-type") || "";
+        const data = contentType.includes("application/json")
+          ? await response.json()
+          : null;
+
+        if (response.ok) {
+          showMessage("پست با موفقیت منتشر شد.", "success");
+
+          const createdPostId = data?.id;
+          setTimeout(() => {
+            if (createdPostId) {
+              window.location.href = `post-detail.html?id=${createdPostId}`;
+            } else {
+              window.location.href = "index.html";
+            }
+          }, 1000);
+          return;
+        }
+
+        if (response.status === 401) {
+          showMessage("نشست شما منقضی شده. دوباره وارد شوید.");
+          setTimeout(() => {
+            window.location.href = "login.html";
+          }, 1200);
+          return;
+        }
+
+        if (response.status === 405) {
+          showMessage("ساخت پست روی این endpoint غیرفعال است. آدرس API را با PostViewset هماهنگ کن.");
+          return;
+        }
+
+        if (response.status === 400) {
+          const errorText = data
+            ? JSON.stringify(data, null, 2)
+            : "اطلاعات ارسالی نامعتبر است.";
+          showMessage(`خطای اعتبارسنجی: ${errorText}`);
+          return;
+        }
+
+        showMessage(data?.detail || "خطایی در ایجاد پست رخ داد.");
+      } catch (error) {
+        console.error("Create post error:", error);
+        showMessage("خطا در ارتباط با سرور.");
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    ensureAuth();
+  </script>
+</body>
+</html>

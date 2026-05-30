@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دایرکت | رئیس</title>
+    <link rel="stylesheet" href="bootstrap-5.2.0-dist/css/bootstrap.rtl.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --ig-border: #dbdbdb; --ig-bg: #fafafa; --ig-blue: #0095f6; }
+        body { background-color: var(--ig-bg); font-family: Tahoma, 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; margin: 0; }
+        .main-container { height: calc(100vh - 80px); margin-top: 20px; background: white; border: 1px solid var(--ig-border); border-radius: 4px; display: flex; overflow: hidden; }
+        .conv-list { width: 350px; border-left: 1px solid var(--ig-border); display: flex; flex-direction: column; background: #fff; }
+        .conv-header { padding: 15px 20px; border-bottom: 1px solid var(--ig-border); font-weight: bold; font-size: 16px; }
+        #conversations-container { overflow-y: auto; flex-grow: 1; }
+        .conv-item { padding: 12px 20px; display: flex; align-items: center; cursor: pointer; transition: 0.2s; border-bottom: 1px solid #f9f9f9; }
+        .conv-item:hover { background-color: #f8f9fa; }
+        .conv-item.active { background-color: #efefef; border-right: 3px solid var(--ig-blue); }
+        .chat-box { flex-grow: 1; display: flex; flex-direction: column; background: white; position: relative; }
+        .chat-header { padding: 12px 20px; border-bottom: 1px solid var(--ig-border); display: flex; align-items: center; background: #fff; z-index: 10; }
+        .messages-area { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; background: #fff; }
+        .msg { max-width: 70%; padding: 10px 15px; margin-bottom: 8px; border-radius: 20px; font-size: 14px; line-height: 1.4; word-wrap: break-word; position: relative; }
+        .msg-sent { align-self: flex-end; background-color: #efefef; color: #262626; border-bottom-right-radius: 4px; }
+        .msg-received { align-self: flex-start; background-color: white; border: 1px solid var(--ig-border); color: #262626; border-bottom-left-radius: 4px; }
+        .sender-name { font-size: 11px; font-weight: 700; color: var(--ig-blue); margin-bottom: 3px; display: block; }
+        .chat-footer { padding: 15px 20px; border-top: 1px solid var(--ig-border); background: #fff; }
+        .input-wrapper { border: 1px solid var(--ig-border); border-radius: 25px; padding: 5px 15px; display: flex; align-items: center; }
+        .chat-input { border: none; outline: none; flex-grow: 1; padding: 8px; font-size: 14px; background: transparent; }
+        .avatar-sm, .avatar-xs { border-radius: 50%; object-fit: cover; border: 1px solid #dbdbdb; margin-left: 12px; }
+        .avatar-sm { width: 50px; height: 50px; }
+        .avatar-xs { width: 38px; height: 38px; }
+        .no-chat { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #8e8e8e; text-align: center; }
+        .user-row { cursor: pointer; transition: 0.2s; }
+        .user-row:hover { background: #fafafa; }
+        .user-check { width: 18px; height: 18px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-light bg-white border-bottom py-2">
+        <div class="container justify-content-between">
+            <a class="navbar-brand fw-bold" href="index.html" style="font-family: 'Segoe UI', Tahoma; font-size: 22px;">Instagram</a>
+            <div id="user-nav-info" class="small fw-bold text-secondary"></div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="main-container shadow-sm">
+            <!-- لیست گفتگوها -->
+            <div class="conv-list">
+                <div class="conv-header d-flex justify-content-between align-items-center">
+                    <span>پیام‌ها</span>
+                    <button class="btn btn-link text-dark p-0" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                        <i class="far fa-edit fa-lg"></i>
+                    </button>
+                </div>
+                <div id="conversations-container"></div>
+            </div>
+
+            <!-- محفظه چت -->
+            <div class="chat-box">
+                <div class="no-chat" id="no-chat-selected">
+                    <div class="border border-2 border-dark rounded-circle p-4 mb-3">
+                        <i class="fab fa-facebook-messenger fa-4x text-dark"></i>
+                    </div>
+                    <h4>پیام‌های شما</h4>
+                    <p>یکی از دوستانتان را انتخاب کنید و پیام بدهید.</p>
+                    <button class="btn btn-primary btn-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#newChatModal">ارسال پیام</button>
+                </div>
+
+                <div id="chat-active" class="d-none h-100 flex-column">
+                    <div class="chat-header">
+                        <div id="active-avatar-area"></div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-0 fw-bold" id="active-user-name" style="font-size: 15px;">...</h6>
+                        </div>
+                    </div>
+                    <div class="messages-area" id="messages-container"></div>
+                    <div class="chat-footer">
+                        <form id="send-form">
+                            <div class="input-wrapper">
+                                <input type="text" id="msg-input" class="chat-input" placeholder="پیام بفرستید..." autocomplete="off">
+                                <button type="submit" class="btn text-primary fw-bold" id="send-btn">ارسال</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal انتخاب کاربر -->
+    <div class="modal fade" id="newChatModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content" style="border-radius: 12px;">
+                <div class="modal-header py-2 border-bottom">
+                    <h6 class="modal-title fw-bold w-100 text-center">پیام جدید</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0" style="max-height: 400px; overflow-y: auto;" id="users-list">
+                    <!-- لیست کاربران اینجا لود می‌شود -->
+                </div>
+                <div class="modal-footer p-2 border-top">
+                    <button type="button" id="create-conv-btn" class="btn btn-primary w-100 fw-bold">ایجاد گفتگو</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="jquery_3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const BASE_API = "http://127.0.0.1:8000";
+        const defaultAvatar = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23efefef'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='14' fill='%238e8e8e' font-family='Tahoma'>User</text></svg>`;
+        
+        let activeConvId = null;
+        let myId = null;
+        const token = localStorage.getItem("access") || localStorage.getItem("token");
+
+        // استخراج آیدی کاربر از توکن
+        if (token) {
+            try { 
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                myId = payload.user_id || payload.id;
+                console.log("My User ID:", myId);
+            } catch(e) { console.error("Token Decode Error", e); }
+        }
+
+        function normalizeUser(u) {
+            if (!u) return { id: null, displayName: "کاربر ناشناس" };
+            // استخراج فیلدها از ساختارهای مختلف (User مستقیم یا Profile)
+            const id = u.id || (u.user && u.user.id) || u.pk;
+            const phone = u.phone_number || (u.user && u.user.phone_number);
+            const username = u.username || (u.user && u.user.username);
+            
+            return {
+                id: id,
+                displayName: phone || username || `کاربر ${id}`
+            };
+        }
+
+        function apiRequest(url, method = 'GET', data = null) {
+            if (!token) { window.location.href = "login.html"; return; }
+            return $.ajax({
+                url: url,
+                method: method,
+                headers: { "Authorization": `Bearer ${token}` },
+                contentType: 'application/json',
+                data: data ? JSON.stringify(data) : null
+            });
+        }
+
+        function loadConversations() {
+            apiRequest(`${BASE_API}/directs/conversations/`)
+                .done(function(data) {
+                    const $container = $('#conversations-container').empty();
+                    if (data.length === 0) {
+                        $container.append('<div class="text-center p-4 text-muted small">هنوز گفتگویی ندارید.</div>');
+                        return;
+                    }
+                    data.forEach(conv => {
+                        const others = conv.user.filter(u => normalizeUser(u).id !== myId);
+                        const displayTitle = others.length > 1 ? `گروه (${conv.user.length})` : (others[0] ? normalizeUser(others[0]).displayName : "گفتگو");
+                        
+                        const itemHtml = `
+                            <div class="conv-item ${activeConvId == conv.id ? 'active' : ''}" onclick="selectConversation(${conv.id}, '${displayTitle}')">
+                                <img src="${defaultAvatar}" class="avatar-sm">
+                                <div class="overflow-hidden">
+                                    <div class="fw-bold text-truncate" style="font-size: 14px;">${displayTitle}</div>
+                                    <small class="text-muted" style="font-size: 11px;">${new Date(conv.created_at).toLocaleTimeString('fa-IR', {hour: '2-digit', minute:'2-digit'})}</small>
+                                </div>
+                            </div>`;
+                        $container.append(itemHtml);
+                    });
+                })
+                .fail(e => console.error("Load Conv Error", e));
+        }
+
+        function selectConversation(id, title) {
+            activeConvId = id;
+            $('#no-chat-selected').addClass('d-none');
+            $('#chat-active').removeClass('d-none').addClass('d-flex');
+            $('#active-user-name').text(title);
+            $('#active-avatar-area').html(`<img src="${defaultAvatar}" class="avatar-xs">`);
+            $('.conv-item').removeClass('active');
+            $(`.conv-item[onclick*="selectConversation(${id},"]`).addClass('active');
+            loadMessages(id);
+        }
+
+        function loadMessages(convId) {
+            apiRequest(`${BASE_API}/directs/conversations/${convId}/messages/`)
+                .done(function(messages) {
+                    const $container = $('#messages-container').empty();
+                    messages.forEach(m => {
+                        const sender = normalizeUser(m.sender);
+                        const isMe = String(sender.id) === String(myId);
+                        $container.append(`
+                            <div class="msg ${isMe ? 'msg-sent' : 'msg-received'}">
+                                ${!isMe ? `<span class="sender-name">${sender.displayName}</span>` : ''}
+                                ${m.message}
+                            </div>`);
+                    });
+                    $container.scrollTop($container[0].scrollHeight);
+                });
+        }
+
+        $('#send-form').submit(function(e) {
+            e.preventDefault();
+            const text = $('#msg-input').val().trim();
+            if (!text || !activeConvId) return;
+            
+            const btn = $('#send-btn').prop('disabled', true);
+            apiRequest(`${BASE_API}/directs/conversations/${activeConvId}/send_message/`, 'POST', { message: text })
+                .done(function() { 
+                    $('#msg-input').val(''); 
+                    loadMessages(activeConvId); 
+                })
+                .always(() => btn.prop('disabled', false));
+        });
+
+        // لود لیست کاربران برای چت جدید
+        $('#newChatModal').on('shown.bs.modal', function () {
+            apiRequest(`${BASE_API}/accounts/all-profiles/`)
+                .done(function(users) {
+                    const $list = $('#users-list').empty();
+                    users.forEach(u => {
+                        const userData = normalizeUser(u);
+                        if(String(userData.id) === String(myId)) return; 
+                        $list.append(`
+                            <div class="user-row d-flex align-items-center px-3 py-3 border-bottom" onclick="toggleCheck(${userData.id})">
+                                <input type="checkbox" class="user-check me-3" id="chk-${userData.id}" value="${userData.id}" onclick="event.stopPropagation()">
+                                <img src="${defaultAvatar}" class="avatar-xs">
+                                <span class="fw-bold small">${userData.displayName}</span>
+                            </div>`);
+                    });
+                });
+        });
+
+        function toggleCheck(id) {
+            const chk = document.getElementById(`chk-${id}`);
+            chk.checked = !chk.checked;
+        }
+
+        // تابع کلیدی ایجاد گفتگو با تست حالت‌های مختلف
+        $('#create-conv-btn').click(async function() {
+            const selectedIds = [];
+            $('.user-check:checked').each(function() {
+                selectedIds.push(parseInt($(this).val()));
+            });
+
+            if(selectedIds.length === 0) return alert("رئیس، حداقل یک نفر را انتخاب کن!");
+
+            const $btn = $(this).prop('disabled', true).text("در حال ایجاد...");
+            
+            // آرایه‌ای از حالت‌های احتمالی که بک‌اند قبول می‌کند
+            const payloads = [
+                { users: selectedIds },
+                { user: selectedIds },
+                { members: selectedIds }
+            ];
+
+            let success = false;
+            for (let payload of payloads) {
+                try {
+                    const res = await apiRequest(`${BASE_API}/directs/conversations/`, 'POST', payload);
+                    console.log("Success with payload:", payload, res);
+                    $('#newChatModal').modal('hide');
+                    loadConversations();
+                    if(res && res.id) selectConversation(res.id, "گفتگوی جدید");
+                    success = true;
+                    break; // اگر یکی جواب داد، بقیه رو تست نکن
+                } catch (err) {
+                    console.warn("Failed with payload:", payload, err.status);
+                }
+            }
+
+            if (!success) {
+                alert("رئیس، بک‌اِند درخواست رو قبول نمی‌کنه. کنسول (F12) رو چک کن.");
+            }
+            $btn.prop('disabled', false).text("ایجاد گفتگو");
+        });
+
+        $(document).ready(function() {
+            loadConversations();
+            // پولینگ هر 4 ثانیه برای پیام‌های جدید
+            setInterval(() => { if(activeConvId) loadMessages(activeConvId); }, 4000);
+        });
+    </script>
+</body>
+</html>

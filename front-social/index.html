@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram Clone | رئیس</title>
+
+  <link rel="stylesheet" href="bootstrap-5.2.0-dist/css/bootstrap.rtl.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+  <style>
+    :root { --ig-bg: #fafafa; --ig-border: #dbdbdb; --ig-text: #262626; --ig-muted:#8e8e8e; --ig-danger:#ed4956; }
+    body { background-color: var(--ig-bg); font-family: Tahoma, Arial; color: var(--ig-text); }
+
+    /* استوری */
+    .stories-wrapper{
+      background:#fff;border:1px solid var(--ig-border);border-radius:8px;
+      padding:15px 10px;margin-bottom:24px;display:flex;gap:15px;overflow-x:auto;scrollbar-width:none
+    }
+    .stories-wrapper::-webkit-scrollbar{display:none}
+    .story-item{min-width:75px;text-align:center;cursor:pointer}
+    .story-ring{
+      width:66px;height:66px;border-radius:50%;
+      background:linear-gradient(45deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);
+      padding:2px;margin:0 auto;display:flex;align-items:center;justify-content:center
+    }
+    .story-avatar{width:60px;height:60px;border-radius:50%;background:#fff;padding:2px;object-fit:cover}
+    .story-username{font-size:11px;margin-top:5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+    /* پست */
+    .post-card{border:1px solid var(--ig-border);border-radius:8px;background:#fff;margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto}
+    .post-header{padding:12px 16px;display:flex;align-items:center;gap:10px}
+    .user-avatar-circle{
+      width:34px;height:34px;border-radius:50%;background:#efefef;
+      display:flex;align-items:center;justify-content:center;border:1px solid #dbdbdb;overflow:hidden;flex:0 0 auto
+    }
+    .user-avatar-circle img{width:100%;height:100%;object-fit:cover}
+    .username-link{font-weight:600;color:var(--ig-text);text-decoration:none;font-size:14px}
+    .post-image-container img{width:100%;height:auto;display:block}
+    .post-content{padding:12px 16px}
+    .action-btns{display:flex;align-items:center;justify-content:space-between}
+    .action-left i,.action-right i{font-size:24px;margin-left:16px;cursor:pointer}
+    .action-right i{margin-left:0}
+    .fa-heart.liked{color:var(--ig-danger)!important}
+    .fa-bookmark.saved{color:#111!important}
+    .caption-section{margin-top:8px;font-size:14px}
+    .caption-username{font-weight:600;margin-left:5px}
+
+    /* Toast خیلی سبک */
+    .ig-toast{
+      position:fixed;bottom:24px;left:24px;z-index:9999;
+      background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;opacity:.95;display:none
+    }
+  </style>
+</head>
+
+<body>
+
+<nav class="navbar navbar-light bg-white border-bottom sticky-top">
+  <div class="container justify-content-between align-items-center">
+    <a class="navbar-brand fw-bold" href="index.html">Instagram</a>
+    <div class="d-flex gap-2">
+      <a href="create-story.html" class="btn btn-sm btn-dark">+ استوری</a>
+      <a href="saved.html" class="btn btn-sm btn-outline-dark">ذخیره‌ها</a>
+      <a href="profile.html" class="btn btn-sm btn-outline-dark">پروفایل من</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+
+      <div id="stories-container" class="stories-wrapper">
+        <!-- stories -->
+      </div>
+
+      <div id="feed-container">
+        <!-- posts -->
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="ig-toast"></div>
+
+<script src="jquery_3.5.1.min.js"></script>
+<script>
+  const BASE_API = "http://127.0.0.1:8000";
+  const token = localStorage.getItem("access") || localStorage.getItem("token");
+
+  // آواتار/placeholder داخلی (بدون اینترنت)
+  const defaultAvatarSvg = `data:image/svg+xml;utf8,` + encodeURIComponent(`
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+      <circle cx='50' cy='50' r='50' fill='#efefef'/>
+      <path d='M50 52c10 0 18-8 18-18S60 16 50 16 32 24 32 34s8 18 18 18zm0 8c-16 0-30 9-30 20v6h60v-6c0-11-14-20-30-20z' fill='#bdbdbd'/>
+    </svg>
+  `);
+
+  const defaultStorySvg = `data:image/svg+xml;utf8,` + encodeURIComponent(`
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'>
+      <rect width='120' height='120' fill='#f5f5f5'/>
+      <circle cx='60' cy='52' r='22' fill='#d0d0d0'/>
+      <rect x='26' y='82' width='68' height='18' rx='9' fill='#d0d0d0'/>
+    </svg>
+  `);
+
+  function toast(msg) {
+    const $t = $('#toast');
+    $t.text(msg).fadeIn(150);
+    setTimeout(() => $t.fadeOut(200), 1200);
+  }
+
+  function getFullUrl(path) {
+    if (!path) return null;
+    if (String(path).startsWith('http')) return path;
+    return BASE_API + (String(path).startsWith('/') ? path : '/' + path);
+  }
+
+  function authHeadersJson() {
+    return {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json"
+    };
+  }
+
+  // ===== Saved state cache =====
+  // savedByPostId[postId] = saveId
+  let savedByPostId = {};
+
+  async function loadSavedMap() {
+    if (!token) return;
+    try {
+      const res = await fetch(`${BASE_API}/posts/saved/`, { headers: { "Authorization": `Bearer ${token}` } });
+      if (!res.ok) return;
+      const data = await res.json();
+
+      savedByPostId = {};
+      (data || []).forEach(item => {
+        const saveId = item.id;
+        const postId = item?.post?.id;
+        if (postId != null) savedByPostId[String(postId)] = saveId;
+      });
+    } catch (e) {
+      console.error("Load saved map error:", e);
+    }
+  }
+
+  // ===== Stories =====
+  async function loadStories() {
+    if (!token) return;
+    try {
+      const response = await fetch(`${BASE_API}/stories/stories/`, { headers: { "Authorization": `Bearer ${token}` }});
+      const stories = await response.json();
+
+      const $container = $('#stories-container').empty();
+
+      if (!Array.isArray(stories) || stories.length === 0) {
+        $container.hide();
+        return;
+      }
+
+      $container.show();
+
+      stories.forEach(story => {
+        const user = story.user_details || {};
+        const avatarUrl = getFullUrl(user.avatar) || defaultAvatarSvg;
+        const username = user.username || user.phone_number || 'user';
+        const storyImg = getFullUrl(story.img) || defaultStorySvg;
+
+        const storyHtml = `
+          <div class="story-item" onclick="window.open('${storyImg}', '_blank')">
+            <div class="story-ring">
+              <img src="${avatarUrl}" class="story-avatar" onerror="this.src='${defaultAvatarSvg}'">
+            </div>
+            <span class="story-username">${username}</span>
+          </div>
+        `;
+        $container.append(storyHtml);
+      });
+
+    } catch (err) {
+      console.error("Story Load Error:", err);
+      $('#stories-container').hide();
+    }
+  }
+
+  // ===== Posts =====
+  function renderPostCard(post) {
+    const avatarPath = post.user_avatar || (post.user && post.user.avatar) || post.author_avatar;
+    const avatarUrl = getFullUrl(avatarPath) || defaultAvatarSvg;
+
+    const username = post.username || (post.user && post.user.username) || (post.user && post.user.phone_number) || 'کاربر';
+    const postImg = getFullUrl(post.img);
+
+    const isLiked = !!post.is_liked;
+    const heartClass = isLiked ? 'fas fa-heart liked' : 'far fa-heart';
+
+    const isSaved = savedByPostId[String(post.id)] != null;
+    const bookmarkClass = isSaved ? 'fas fa-bookmark saved' : 'far fa-bookmark';
+
+    return `
+      <div class="post-card" id="post-${post.id}">
+        <div class="post-header">
+          <div class="user-avatar-circle">
+            <img src="${avatarUrl}" onerror="this.src='${defaultAvatarSvg}'">
+          </div>
+          <span class="username-link">${username}</span>
+        </div>
+
+        <div class="post-image-container">
+          <a href="post-detail.html?id=${post.id}">
+            <img src="${postImg}" alt="Post" onerror="this.src='${defaultStorySvg}'">
+          </a>
+        </div>
+
+        <div class="post-content">
+          <div class="action-btns mb-2">
+            <div class="action-left">
+              <i id="like-btn-${post.id}" class="${heartClass}" onclick="toggleLike(${post.id})"></i>
+              <i class="far fa-comment" onclick="location.href='post-detail.html?id=${post.id}'"></i>
+              <i class="far fa-paper-plane"></i>
+            </div>
+            <div class="action-right">
+              <i id="save-btn-${post.id}" class="${bookmarkClass}" onclick="toggleSave(${post.id})"></i>
+            </div>
+          </div>
+
+          <div class="caption-section">
+            <span class="caption-username">${username}</span>
+            <span>${post.caption || ''}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadPosts() {
+    if (!token) return;
+
+    // اول saved ها رو بگیر تا وضعیت bookmark درست رندر بشه
+    await loadSavedMap();
+
+    $.ajax({
+      url: `${BASE_API}/posts/all-posts/`,
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` },
+      success: function(data) {
+        const $feed = $('#feed-container').empty();
+
+        if (!Array.isArray(data) || data.length === 0) {
+          $feed.append(`<div class="text-center text-muted py-5">پستی برای نمایش وجود ندارد.</div>`);
+          return;
+        }
+
+        data.forEach(post => $feed.append(renderPostCard(post)));
+      },
+      error: function(err) {
+        console.error("Load posts error:", err);
+        if (err.status === 401) location.href = "login.html";
+      }
+    });
+  }
+
+  // ===== Like =====
+  async function toggleLike(postId) {
+    const $likeBtn = $(`#like-btn-${postId}`);
+    $likeBtn.addClass('fa-beat-alpha');
+
+    try {
+      const response = await fetch(`${BASE_API}/posts/all-posts/${postId}/like/`, {
+        method: 'POST',
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        if ($likeBtn.hasClass('far')) {
+          $likeBtn.removeClass('far fa-heart').addClass('fas fa-heart liked');
+        } else {
+          $likeBtn.removeClass('fas fa-heart liked').addClass('far fa-heart');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      $likeBtn.removeClass('fa-beat-alpha');
+    }
+  }
+
+  // ===== Save / Unsave =====
+  async function toggleSave(postId) {
+    const $btn = $(`#save-btn-${postId}`);
+    $btn.addClass('fa-beat');
+
+    const key = String(postId);
+    const existingSaveId = savedByPostId[key];
+
+    try {
+      // اگر قبلاً save شده => unsave با DELETE /posts/saved/{id}/
+      if (existingSaveId) {
+        const res = await fetch(`${BASE_API}/posts/saved/${existingSaveId}/`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (res.ok || res.status === 204) {
+          delete savedByPostId[key];
+          $btn.removeClass('fas fa-bookmark saved').addClass('far fa-bookmark');
+          toast("از ذخیره‌ها حذف شد");
+        } else {
+          const t = await res.text();
+          console.error("Unsave failed:", res.status, t);
+          toast("خطا در حذف از ذخیره‌ها");
+        }
+        return;
+      }
+
+      // اگر save نشده => POST /posts/saved/ با {"post": postId}
+      const res = await fetch(`${BASE_API}/posts/saved/`, {
+        method: "POST",
+        headers: authHeadersJson(),
+        body: JSON.stringify({ post: postId })
+      });
+
+      if (res.ok) {
+        const savedObj = await res.json();
+        // savedObj = {id, post:{...}}
+        const saveId = savedObj?.id;
+        if (saveId) savedByPostId[key] = saveId;
+
+        $btn.removeClass('far fa-bookmark').addClass('fas fa-bookmark saved');
+        toast("ذخیره شد");
+      } else {
+        const t = await res.text();
+        console.error("Save failed:", res.status, t);
+
+        // اگر بک‌اند Unique گذاشته باشه و قبلاً ذخیره شده باشه، همونجا UI رو درست کن
+        if (res.status === 400 || res.status === 409) {
+          toast("قبلاً ذخیره شده یا داده نامعتبر است");
+        } else {
+          toast("خطا در ذخیره");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast("خطای شبکه");
+    } finally {
+      $btn.removeClass('fa-beat');
+    }
+  }
+
+  $(document).ready(function() {
+    if (!token) {
+      location.href = "login.html";
+      return;
+    }
+    loadStories();
+    loadPosts();
+  });
+</script>
+
+</body>
+</html>

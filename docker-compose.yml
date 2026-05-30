@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: socialmedia
+      POSTGRES_USER: ali
+      POSTGRES_PASSWORD: 82918291
+    ports:
+      - "5433:5432"
+    networks:
+      - social-network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6380:6379"
+    networks:
+      - social-network
+
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_HOST: redis
+      DB_HOST: db
+      DB_NAME: socialmedia
+      DB_USER: ali
+      DB_PASS: 82918291
+    depends_on:
+      - db
+      - redis
+    networks:
+      - social-network
+
+networks:
+  social-network:
+    driver: bridge
